@@ -1,0 +1,1691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enumeration with Nmap — Full Lab Walkthrough</title>
+<meta name="description" content="Step-by-step walkthrough of a network enumeration lab: interface verification, host discovery, port scanning, OS detection, service versioning, and SMB enumeration with Nmap.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Enumeration with Nmap — Full Lab Walkthrough">
+<meta property="og:description" content="Every command from the lab, explained line by line: nmap -sn, -sT, -O, -sV, -A, and targeted SMB NSE scripts.">
+<meta property="og:image" content="images/og-cover.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles/main.css">
+<link rel="icon" href="images/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div id="progress-bar"></div>
+
+<header class="topbar">
+  <button class="menu-toggle" aria-label="Toggle navigation" aria-expanded="false">≡</button>
+  <a class="brand" href="index.html"><span class="flag-badge">-sC</span> Nmap Enumeration Lab</a>
+  <div class="spacer"></div>
+  <div class="search-box">
+    <input type="search" id="site-search" placeholder="Search the walkthrough…" aria-label="Search the walkthrough">
+    <div class="search-results" id="search-results" role="listbox"></div>
+  </div>
+  <a class="repo-link" href="https://github.com/" target="_blank" rel="noopener">
+    <span aria-hidden="true">⌥</span><span class="repo-text">Source</span>
+  </a>
+</header>
+
+<div class="shell">
+  <!-- ============================= SIDEBAR ============================= -->
+  <aside class="sidebar">
+    <div class="sidebar-group">
+      <h3>Getting started</h3>
+      <nav aria-label="Primary">
+        <ul>
+          <li><a href="index.html">Overview</a></li>
+          <li><a href="lab.html#introduction">Introduction</a></li>
+          <li><a href="lab.html#objectives">Objectives</a></li>
+          <li><a href="lab.html#prerequisites">Prerequisites</a></li>
+          <li><a href="lab.html#topology">Lab topology</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="sidebar-group">
+      <h3>Walkthrough</h3>
+      <nav aria-label="Walkthrough sections">
+        <ul>
+          <li>
+            <a href="lab.html#environment-verification">Environment verification</a>
+            <ul>
+              <li><a href="lab.html#checking-interfaces">Checking interfaces</a></li>
+              <li><a href="lab.html#confirming-version">Confirming Nmap's version</a></li>
+              <li><a href="lab.html#built-in-help">Reading the built-in help</a></li>
+            </ul>
+          </li>
+          <li><a href="lab.html#host-discovery">Host discovery</a></li>
+          <li>
+            <a href="lab.html#initial-port-scan">Initial port scan</a>
+            <ul>
+              <li><a href="lab.html#default-scan">Default scan</a></li>
+              <li><a href="lab.html#tcp-connect-scan">TCP connect scan</a></li>
+            </ul>
+          </li>
+          <li><a href="lab.html#os-detection">OS detection</a></li>
+          <li>
+            <a href="lab.html#service-version-detection">Service &amp; version detection</a>
+            <ul>
+              <li><a href="lab.html#timing-templates">Timing templates</a></li>
+            </ul>
+          </li>
+          <li>
+            <a href="lab.html#aggressive-scanning">Aggressive scanning</a>
+            <ul>
+              <li><a href="lab.html#anonymous-ftp">Anonymous FTP</a></li>
+            </ul>
+          </li>
+          <li><a href="lab.html#smb-enumeration">SMB enumeration</a></li>
+          <li><a href="lab.html#finding-scripts">Finding NSE scripts</a></li>
+          <li>
+            <a href="lab.html#targeted-nse">Targeted NSE scripts</a>
+            <ul>
+              <li><a href="lab.html#smb-enum-users">smb-enum-users</a></li>
+              <li><a href="lab.html#smb-enum-groups">smb-enum-groups</a></li>
+              <li><a href="lab.html#smb-enum-shares">smb-enum-shares</a></li>
+            </ul>
+          </li>
+        </ul>
+      </nav>
+    </div>
+    <div class="sidebar-group">
+      <h3>Wrap-up</h3>
+      <nav aria-label="Wrap-up sections">
+        <ul>
+          <li><a href="lab.html#analysis">Analysis</a></li>
+          <li><a href="lab.html#summary">Summary</a></li>
+          <li><a href="lab.html#lessons-learned">Lessons learned</a></li>
+          <li><a href="lab.html#references">References</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="sidebar-group">
+      <label style="display:flex;align-items:center;gap:0.5em;font-size:0.82rem;color:var(--text-muted);">
+        <input type="checkbox" id="animation-toggle">
+        Enable terminal typing animation
+      </label>
+    </div>
+  </aside>
+
+  <!-- ============================== MAIN =============================== -->
+  <main id="main">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="index.html">Home</a><span class="sep">/</span><span class="current">Lab walkthrough</span>
+    </nav>
+
+    <h1>Enumeration with Nmap: Full Lab Walkthrough</h1>
+    <div class="page-meta">
+      <span><strong>Reading time:</strong> ~24 min</span>
+      <span><strong>Last updated:</strong> 6 July 2026</span>
+      <span><strong>Difficulty:</strong> Beginner–Intermediate</span>
+      <span><strong>Tool version:</strong> Nmap 7.94</span>
+    </div>
+
+    <section id="introduction">
+      <p>
+        Enumeration is the phase of a security assessment where you go from "there is a network" to
+        "here is what's actually running on it, and here's where it might be weak." Nmap is the tool
+        most people reach for first, not because it's the flashiest option, but because it answers the
+        two most important early questions cheaply: <em>what's alive</em>, and <em>what's listening</em>.
+      </p>
+      <p>
+        Everything below happened in one sitting, against one lab network, from a single Kali VM. The
+        commands are shown exactly as they were typed, including a couple of mistakes that are worth
+        seeing precisely because they're the kind of thing that happens to everyone the first few times
+        they use this tool.
+      </p>
+      <div class="callout note" data-search-entry data-search-title="A note on the target" data-search-section="Introduction" data-search-href="#introduction" data-search-text="gravemind vulnerable vm lab target">
+        <div class="callout-title">A note on the target</div>
+        <p>
+          The primary target in this walkthrough, <code>gravemind.vm</code> (<code>10.6.6.23</code>),
+          is a deliberately vulnerable machine set up for training purposes inside an isolated lab
+          network. It's not a production system and it's not reachable from outside that network.
+        </p>
+      </div>
+    </section>
+
+    <section id="objectives">
+      <h2>Objectives</h2>
+      <p>By the end of this walkthrough, you should be able to:</p>
+      <ul>
+        <li>Confirm your own machine's network position before scanning anything else.</li>
+        <li>Sweep a subnet to find which hosts are actually up.</li>
+        <li>Explain the practical difference between a SYN scan, a connect scan, and a version scan.</li>
+        <li>Read Nmap's OS-detection output critically rather than taking it as gospel.</li>
+        <li>Use the Nmap Scripting Engine (NSE) to pull specific information out of a service, rather than just knowing a port is open.</li>
+        <li>Recognize what an anonymous FTP login or a misconfigured SMB share actually means for security.</li>
+      </ul>
+    </section>
+
+    <section id="prerequisites">
+      <h2>Prerequisites</h2>
+      <p>
+        You should have Nmap installed (this walkthrough uses version 7.94, the version that ships with
+        current Kali releases) and a target you're authorized to scan. If you want to follow along on
+        your own lab, a couple of intentionally vulnerable VMs behind a host-only network adapter is
+        enough — you don't need the exact same setup used here.
+      </p>
+    </section>
+
+    <section id="topology">
+      <h2>Lab topology</h2>
+      <p>
+        The attacking machine is a Kali VM with several interfaces, only one of which matters for this
+        exercise. The target sits on an isolated <code>10.6.6.0/24</code> network alongside a handful of
+        other training VMs that aren't touched in this walkthrough.
+      </p>
+      <table class="topology-table">
+        <thead><tr><th>Role</th><th>Address</th></tr></thead>
+        <tbody>
+          <tr><td>Attacker (Kali)</td><td><code>10.6.6.1</code></td></tr>
+          <tr><td>Target (gravemind.vm)</td><td><code>10.6.6.23</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+
+    <section id="environment-verification">
+      <div class="section-head"><h2>Environment verification</h2></div>
+      <p>
+        Before pointing a scanner at anything, it's worth spending thirty seconds confirming which
+        network you're actually on. It's easy to assume you're talking to the lab network and instead
+        be looking at a Docker bridge or a VPN adapter — and that mistake produces confusing results
+        later that look like Nmap problems but are really addressing problems.
+      </p>
+
+      <div class="command-doc" id="checking-interfaces">
+        <div class="section-head"><h3>Checking network interfaces</h3><span class="flag-badge">ifconfig</span></div>
+
+        <div class="doc-subsection">
+          <h4>Purpose</h4>
+          <p>Confirm which network interface actually connects to the lab, and note its assigned address.</p>
+        </div>
+
+        <div class="doc-subsection">
+          <h4>Command</h4>
+          <div class="terminal collapsed" data-search-entry data-search-title="ifconfig" data-search-section="Environment verification" data-search-href="#checking-interfaces" data-search-text="ifconfig interfaces eth0 docker veth bridge">
+            <div class="terminal-header">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-title">kali@kali: ~</div>
+              <div class="terminal-actions">
+                <button class="term-btn js-copy" type="button">Copy</button>
+                <button class="term-btn js-expand" type="button">Expand</button>
+                <button class="term-btn js-collapse" type="button">Collapse</button>
+              </div>
+            </div>
+            <div class="terminal-body"><pre><span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd" data-animate-line>ifconfig</span></span>
+<span class="term-out">br-339414195aeb: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet 10.5.5.1  netmask 255.255.255.0  broadcast 10.5.5.255
+        inet6 fe80::42:6bff:fe30:e042  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether 02:42:6b:30:e0:42  txqueuelen 0  (Ethernet)
+        RX packets 268  bytes 15210 (14.8 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 31  bytes 4003 (3.9 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+br-355ee7945a88: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet 192.168.0.1  netmask 255.255.255.0  broadcast 192.168.0.255
+        inet6 fe80::42:56ff:fe21:5172  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether 02:42:56:21:51:72  txqueuelen 0  (Ethernet)
+        RX packets 149  bytes 27941 (27.2 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 16  bytes 2402 (2.3 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+br-internal: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet 10.6.6.1  netmask 255.255.255.0  broadcast 10.6.6.255
+        inet6 fe80::42:c5ff:fecd:b736  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether 02:42:c5:cd:b7:36  txqueuelen 0  (Ethernet)
+        RX packets 265  bytes 15092 (14.7 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 25  bytes 3431 (3.3 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+docker0: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet 172.17.0.1  netmask 255.255.0.0  broadcast 172.17.255.255
+        inet6 fe80::42:4eff:fe47:dd8c  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether 02:42:4e:47:dd:8c  txqueuelen 0  (Ethernet)
+        RX packets 143  bytes 27651 (27.0 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 31  bytes 3932 (3.8 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+eth0: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet 10.0.2.15  netmask 255.255.255.0  broadcast 10.0.2.255
+        inet6 fd17:625c:f037:2:a11e:bf7b:282f:729e  prefixlen 64  scopeid 0x0&lt;global&gt;
+        inet6 fd17:625c:f037:2:a00:27ff:fe4a:f36e  prefixlen 64  scopeid 0x0&lt;global&gt;
+        inet6 fe80::a00:27ff:fe4a:f36e  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether 08:00:27:4a:f3:6e  txqueuelen 1000  (Ethernet)
+        RX packets 21049  bytes 20107757 (19.1 MiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 13876  bytes 1754400 (1.6 MiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+lo: flags=73&lt;UP,LOOPBACK,RUNNING&gt;  mtu 65536
+        inet 127.0.0.1  netmask 255.0.0.0
+        inet6 ::1  prefixlen 128  scopeid 0x10&lt;host&gt;
+        loop  txqueuelen 1000  (Local Loopback)
+        RX packets 44  bytes 2240 (2.1 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 44  bytes 2240 (2.1 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+veth5345600: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet6 fe80::e48e:4bff:fe00:d89e  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether e6:8e:4b:00:d8:9e  txqueuelen 0  (Ethernet)
+        RX packets 27  bytes 1998 (1.9 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 39  bytes 5142 (5.0 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+veth04ae98f: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet6 fe80::e8f1:9dff:fe0e:53ba  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether ea:f1:9d:0e:53:ba  txqueuelen 0  (Ethernet)
+        RX packets 241  bytes 16964 (16.5 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 45  bytes 5394 (5.2 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+veth0f443c4: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet6 fe80::b05a:feff:fe37:b17a  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether b2:5a:fe:37:b1:7a  txqueuelen 0  (Ethernet)
+        RX packets 0  bytes 0 (0.0 B)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 38  bytes 5747 (5.6 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+veth460b741: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet6 fe80::406:e8ff:fed8:2a07  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether 06:06:e8:d8:2a:07  txqueuelen 0  (Ethernet)
+        RX packets 0  bytes 0 (0.0 B)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 37  bytes 5098 (4.9 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+veth4d69545: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet6 fe80::9cd5:f6ff:fe33:e02  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether 9e:d5:f6:33:0e:02  txqueuelen 0  (Ethernet)
+        RX packets 0  bytes 0 (0.0 B)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 38  bytes 5727 (5.5 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+veth5dd9b7b: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet6 fe80::a4ce:34ff:fe43:e0f9  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether a6:ce:34:43:e0:f9  txqueuelen 0  (Ethernet)
+        RX packets 0  bytes 0 (0.0 B)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 39  bytes 5298 (5.1 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+veth61b00af: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet6 fe80::e821:2bff:feef:45a7  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether ea:21:2b:ef:45:a7  txqueuelen 0  (Ethernet)
+        RX packets 149  bytes 30027 (29.3 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 42  bytes 4977 (4.8 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+veth6bf9e91: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet6 fe80::d88b:6bff:fefb:7c93  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether da:8b:6b:fb:7c:93  txqueuelen 0  (Ethernet)
+        RX packets 26  bytes 1956 (1.9 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 39  bytes 5230 (5.1 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+veth7406de3: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet6 fe80::10b3:56ff:fea3:1019  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether 12:b3:56:a3:10:19  txqueuelen 0  (Ethernet)
+        RX packets 0  bytes 0 (0.0 B)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 37  bytes 5078 (4.9 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+veth856864f: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet6 fe80::30c4:75ff:feb6:49a8  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether 32:c4:75:b6:49:a8  txqueuelen 0  (Ethernet)
+        RX packets 239  bytes 16846 (16.4 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 45  bytes 5414 (5.2 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+veth96aab7e: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet6 fe80::4807:9aff:fe56:623d  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether 4a:07:9a:56:62:3d  txqueuelen 0  (Ethernet)
+        RX packets 0  bytes 0 (0.0 B)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 41  bytes 6037 (5.8 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+vethde43803: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet6 fe80::b8bc:bdff:fe08:4b9e  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether ba:bc:bd:08:4b:9e  txqueuelen 0  (Ethernet)
+        RX packets 143  bytes 29653 (28.9 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 58  bytes 6597 (6.4 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+vethf0ca022: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet6 fe80::1825:cbff:fe01:d179  prefixlen 64  scopeid 0x20&lt;link&gt;
+        ether 1a:25:cb:01:d1:79  txqueuelen 0  (Ethernet)
+        RX packets 0  bytes 0 (0.0 B)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 37  bytes 5058 (4.9 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0</span></pre></div>
+          </div>
+        </div>
+
+        <div class="doc-subsection">
+          <h4>Explanation</h4>
+          <p>
+            The output looks intimidating mostly because of volume, not complexity. The <code>br-internal</code>
+            interface is the one that matters here — it carries the address <code>10.6.6.1</code>, which
+            matches the lab subnet described in the topology section. The <code>eth0</code> interface, by
+            contrast, is the VM's connection to the outside internet via NAT (<code>10.0.2.15</code> is the
+            classic VirtualBox NAT range), and <code>lo</code> is simply the loopback interface every Linux
+            system has.
+          </p>
+          <p>
+            At this point the output also contained a long run of <code>veth*</code> and <code>br-*</code>
+            interfaces. These can safely be ignored — they belong to Docker's container networking, created
+            automatically because some of the lab's vulnerable-app containers run locally, and they have
+            nothing to do with the actual scan target.
+          </p>
+        </div>
+
+        <div class="doc-subsection">
+          <h4>Important observations</h4>
+          <ul>
+            <li>The address that matters for this lab, <code>10.6.6.1</code>, is bound to <code>br-internal</code>, not <code>eth0</code>.</li>
+            <li>Every Docker-related interface (<code>docker0</code> and the <code>veth*</code> pairs) can be mentally filtered out for the rest of this walkthrough.</li>
+            <li>None of these interfaces show a carrier or collision count worth worrying about — the RX/TX error columns are all zero, which is what you want to see before you start troubleshooting connectivity elsewhere.</li>
+          </ul>
+        </div>
+
+        <div class="doc-subsection">
+          <h4>Common mistakes</h4>
+          <p>
+            Scanning the wrong subnet is the single most common early mistake with multi-adapter Kali
+            VMs. If you run <code>nmap -sn 10.0.2.0/24</code> instead of <code>10.6.6.0/24</code> here,
+            you'll get a confusing "no hosts up" result that has nothing to do with Nmap and everything to
+            do with pointing it at the wrong network.
+          </p>
+        </div>
+
+        <div class="doc-subsection">
+          <h4>Related commands</h4>
+          <div class="related-tags">
+            <span class="flag-badge">ip addr</span>
+            <span class="flag-badge">ip route</span>
+            <span class="flag-badge">nmap --iflist</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="command-doc" id="confirming-version">
+        <div class="section-head"><h3>Confirming the Nmap version</h3><span class="flag-badge">-V</span></div>
+        <div class="doc-subsection">
+          <h4>Purpose</h4>
+          <p>Verify which release of Nmap is installed, since flag availability and NSE script behavior can shift between versions.</p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Syntax</h4>
+          <span class="syntax-line">nmap -V</span>
+        </div>
+        <div class="doc-subsection">
+          <h4>Command &amp; output</h4>
+          <div class="terminal" data-search-entry data-search-title="nmap -V" data-search-section="Environment verification" data-search-href="#confirming-version" data-search-text="nmap version 7.94 liblua openssl libssh2">
+            <div class="terminal-header">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-title">kali@kali: ~</div>
+              <div class="terminal-actions">
+                <button class="term-btn js-copy" type="button">Copy</button>
+                <button class="term-btn js-expand" type="button">Expand</button>
+                <button class="term-btn js-collapse" type="button">Collapse</button>
+              </div>
+            </div>
+            <div class="terminal-body"><pre><span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd">nmap</span> <span class="term-flag-tok">-V</span></span>
+<span class="term-out">Nmap version 7.94 ( https://nmap.org )
+Platform: x86_64-pc-linux-gnu
+Compiled with: liblua-5.4.4 openssl-3.0.9 libssh2-1.10.0 libz-1.2.13 libpcre-8.39 libpcap-1.10.4 nmap-libdnet-1.12 ipv6
+Compiled without:
+Available nsock engines: epoll poll select</span></pre></div>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Explanation</h4>
+          <p>
+            Nmap 7.94 is current as of this writing and ships with a fairly complete feature set: IPv6
+            support, Lua for the scripting engine (NSE), and OpenSSL for anything that touches TLS. The
+            "compiled without" line is empty, meaning this build wasn't stripped of any optional features
+            — useful to know later, since a minimal build could silently disable some NSE categories.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Security implications</h4>
+          <p>
+            Version awareness matters on both sides of a scan. An outdated Nmap might lack signatures for
+            newer services, and an outdated target service is exactly what this whole lab is trying to
+            surface.
+          </p>
+        </div>
+      </div>
+
+      <div class="command-doc" id="built-in-help">
+        <div class="section-head"><h3>Reading the built-in help</h3><span class="flag-badge">-h</span> <span class="flag-badge">man</span></div>
+        <div class="doc-subsection">
+          <h4>Purpose</h4>
+          <p>Get an overview of Nmap's flag categories before committing to a specific scan strategy.</p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Command</h4>
+          <div class="terminal collapsed" data-search-entry data-search-title="nmap -h / man nmap" data-search-section="Environment verification" data-search-href="#built-in-help" data-search-text="nmap help man page target specification scan techniques timing">
+            <div class="terminal-header">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-title">kali@kali: ~</div>
+              <div class="terminal-actions">
+                <button class="term-btn js-copy" type="button">Copy</button>
+                <button class="term-btn js-expand" type="button">Expand</button>
+                <button class="term-btn js-collapse" type="button">Collapse</button>
+              </div>
+            </div>
+            <div class="terminal-body"><pre><span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd">nmap</span> <span class="term-flag-tok">-h</span></span>
+<span class="term-out">Nmap 7.94 ( https://nmap.org )
+Usage: nmap [Scan Type(s)] [Options] {target specification}
+TARGET SPECIFICATION:
+  Can pass hostnames, IP addresses, networks, etc.
+  Ex: scanme.nmap.org, microsoft.com/24, 192.168.0.1; 10.0.0-255.1-254
+HOST DISCOVERY:
+  -sn: Ping Scan - disable port scan
+  -Pn: Treat all hosts as online -- skip host discovery
+SCAN TECHNIQUES:
+  -sS/sT/sA/sW/sM: TCP SYN/Connect()/ACK/Window/Maimon scans
+  -sU: UDP Scan
+SERVICE/VERSION DETECTION:
+  -sV: Probe open ports to determine service/version info
+SCRIPT SCAN:
+  -sC: equivalent to --script=default
+OS DETECTION:
+  -O: Enable OS detection
+TIMING AND PERFORMANCE:
+  -T&lt;0-5&gt;: Set timing template (higher is faster)
+OUTPUT:
+  -oN/-oX/-oS/-oG &lt;file&gt;: Output scan in normal, XML, s|&lt;rIpt kIddi3, and grepable format
+MISC:
+  -A: Enable OS detection, version detection, script scanning, and traceroute
+  -V: Print version number
+  -h: Print this help summary page.
+SEE THE MAN PAGE (https://nmap.org/book/man.html) FOR MORE OPTIONS AND EXAMPLES</span>
+
+<span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd">man</span> <span class="term-arg">nmap</span></span>
+<span class="term-comment"># opens the full manual page in the terminal pager; closed without changes</span></pre></div>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Explanation</h4>
+          <p>
+            <code>-h</code> prints a condensed cheat sheet; <code>man nmap</code> opens the complete manual,
+            which runs to several thousand lines and documents every flag, NSE category, and output format
+            in detail. In practice, most people keep <code>-h</code> open for quick reference and only drop
+            into the man page when a specific flag needs more explanation than one line provides.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Common mistakes</h4>
+          <p>
+            The full <code>-h</code> output actually ran twice in the raw session log, and <code>man nmap</code>
+            was also invoked twice before it was actually read. That's normal — command history gets reused
+            constantly during a live session, and it's been trimmed here rather than reproduced twice for
+            no reason.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="host-discovery">
+      <div class="section-head"><h2>Host discovery</h2><span class="flag-badge">-sn</span></div>
+      <p>
+        With the correct interface confirmed, the next question is simply: which of the 256 possible
+        addresses in <code>10.6.6.0/24</code> actually belong to a running machine? A ping sweep answers
+        that without touching a single port.
+      </p>
+
+      <div class="command-doc" id="sweeping-the-subnet">
+        <div class="doc-subsection">
+          <h4>Purpose</h4>
+          <p>Identify which hosts on the lab subnet are currently up, before spending time port-scanning addresses that aren't even occupied.</p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Syntax</h4>
+          <span class="syntax-line">nmap -sn &lt;target-range&gt;</span>
+        </div>
+        <div class="doc-subsection">
+          <h4>Command &amp; output</h4>
+          <div class="terminal" data-search-entry data-search-title="nmap -sn 10.6.6.0/24" data-search-section="Host discovery" data-search-href="#sweeping-the-subnet" data-search-text="ping scan sweep subnet host discovery webgoat juice-shop dvwa mutillidae gravemind">
+            <div class="terminal-header">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-title">kali@kali: ~</div>
+              <div class="terminal-actions">
+                <button class="term-btn js-copy" type="button">Copy</button>
+                <button class="term-btn js-expand" type="button">Expand</button>
+                <button class="term-btn js-collapse" type="button">Collapse</button>
+              </div>
+            </div>
+            <div class="terminal-body"><pre><span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd">nmap</span> <span class="term-flag-tok">-sn</span> <span class="term-arg">10.6.6.0/24</span></span>
+<span class="term-out">Starting Nmap 7.94 ( https://nmap.org ) at 2026-07-05 21:32 UTC
+Nmap scan report for 10.6.6.1
+Host is up (0.00085s latency).
+Nmap scan report for webgoat.vm (10.6.6.11)
+Host is up (0.0012s latency).
+Nmap scan report for juice-shop.vm (10.6.6.12)
+Host is up (0.00094s latency).
+Nmap scan report for dvwa.vm (10.6.6.13)
+Host is up (0.00052s latency).
+Nmap scan report for mutillidae.vm (10.6.6.14)
+Host is up (0.00020s latency).
+Nmap scan report for gravemind.vm (10.6.6.23)
+Host is up (0.0011s latency).
+Nmap scan report for 10.6.6.100
+Host is up (0.00059s latency).
+Nmap done: 256 IP addresses (7 hosts up) scanned in 2.95 seconds</span></pre></div>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Explanation</h4>
+          <p>
+            <code>-sn</code> tells Nmap to skip the port-scanning phase entirely and only perform host
+            discovery — in practice a mix of ICMP echo requests, ARP requests (since this is a local
+            subnet), and a couple of TCP probes to common ports, any one of which counts as proof a host
+            is alive. In under three seconds, Nmap checked all 256 addresses in the /24 and reported seven
+            hosts up, including the Kali box itself.
+          </p>
+          <p>
+            Notice that Nmap resolved reverse-DNS names for most of the hosts (<code>webgoat.vm</code>,
+            <code>dvwa.vm</code>, and so on) but left two addresses as bare IPs. That's simply because
+            those two hosts don't have PTR records configured in the lab's local DNS — it doesn't mean
+            anything is wrong with them.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Important observations</h4>
+          <ul>
+            <li>Seven hosts responded out of 256 possible addresses — the rest of the subnet is simply unused space reserved for future lab machines.</li>
+            <li><code>gravemind.vm</code> at <code>10.6.6.23</code> is the host this walkthrough focuses on from here forward.</li>
+            <li>A ping sweep this fast (under 3 seconds for a full /24) is only realistic on a local, low-latency network — the same scan against a routed WAN target would take considerably longer and would be far less reliable, since ICMP is commonly filtered.</li>
+          </ul>
+        </div>
+        <div class="doc-subsection">
+          <h4>Common pitfalls</h4>
+          <div class="callout warning">
+            <div class="callout-title">Common pitfall</div>
+            <p>
+              A ping sweep can under-report live hosts if a target's firewall drops ICMP and doesn't
+              respond on any of the default probe ports. When that happens, the fix isn't to assume the
+              host is down — it's to add <code>-Pn</code> later to skip discovery and scan it directly.
+            </p>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Related commands</h4>
+          <div class="related-tags">
+            <span class="flag-badge">-PE</span>
+            <span class="flag-badge">-PS</span>
+            <span class="flag-badge">-Pn</span>
+            <span class="flag-badge">arp-scan</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="initial-port-scan">
+      <div class="section-head"><h2>Initial port scan</h2></div>
+      <p>
+        With one host chosen as the target, the next step is finding out what's actually listening on
+        it. Nmap was run twice here: once with no scan-type flag at all, and once explicitly with
+        <code>-sT</code>, to make the relationship between the two visible.
+      </p>
+
+      <div class="command-doc" id="default-scan">
+        <div class="section-head"><h3>Default scan</h3></div>
+        <div class="doc-subsection">
+          <h4>Purpose</h4>
+          <p>Get a fast first look at which of the 1,000 most common TCP ports are open on the target.</p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Command &amp; output</h4>
+          <div class="terminal" data-search-entry data-search-title="nmap 10.6.6.23 (default scan)" data-search-section="Initial port scan" data-search-href="#default-scan" data-search-text="default scan open ports ftp ssh domain http netbios microsoft-ds">
+            <div class="terminal-header">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-title">kali@kali: ~</div>
+              <div class="terminal-actions">
+                <button class="term-btn js-copy" type="button">Copy</button>
+                <button class="term-btn js-expand" type="button">Expand</button>
+                <button class="term-btn js-collapse" type="button">Collapse</button>
+              </div>
+            </div>
+            <div class="terminal-body"><pre><span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd">nmap</span> <span class="term-arg">10.6.6.23</span></span>
+<span class="term-out">Starting Nmap 7.94 ( https://nmap.org ) at 2026-07-05 21:34 UTC
+Nmap scan report for gravemind.vm (10.6.6.23)
+Host is up (0.0014s latency).
+Not shown: 994 closed tcp ports (conn-refused)
+PORT    STATE SERVICE
+21/tcp  open  ftp
+22/tcp  open  ssh
+53/tcp  open  domain
+80/tcp  open  http
+139/tcp open  netbios-ssn
+445/tcp open  microsoft-ds
+
+Nmap done: 1 IP address (1 host up) scanned in 0.26 seconds</span></pre></div>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Explanation</h4>
+          <p>
+            With no scan type specified, Nmap defaults to a TCP SYN scan when it's run with enough
+            privilege, and quietly falls back to a connect scan otherwise. Six ports came back open,
+            which is a fairly rich attack surface for a single host: an FTP server, SSH, DNS, a web
+            server, and two SMB-related ports that will end up being the most interesting part of this
+            entire lab.
+          </p>
+          <p>
+            "Not shown: 994 closed tcp ports" is Nmap's way of confirming it checked the default 1,000
+            ports and is compressing the boring result (closed, connection refused) into a single line
+            rather than printing 994 near-identical rows.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Important observations</h4>
+          <ul>
+            <li>Six services are exposed: FTP (21), SSH (22), DNS (53), HTTP (80), NetBIOS Session Service (139), and Microsoft-DS/SMB (445).</li>
+            <li>The presence of both 139 and 445 together strongly suggests Samba or Windows file sharing — that's confirmed later in the SMB enumeration section.</li>
+            <li>This scan completed in a quarter of a second, which is only possible with raw-socket SYN scanning on a low-latency LAN target.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="command-doc" id="tcp-connect-scan">
+        <div class="section-head"><h3>TCP connect scan</h3><span class="flag-badge">-sT</span></div>
+        <div class="doc-subsection">
+          <h4>Purpose</h4>
+          <p>Run the same scan using a full TCP three-way handshake instead of a raw SYN probe, and compare the result.</p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Syntax</h4>
+          <span class="syntax-line">nmap -sT &lt;target&gt;</span>
+        </div>
+        <div class="doc-subsection">
+          <h4>Command &amp; output</h4>
+          <div class="terminal" data-search-entry data-search-title="nmap -sT 10.6.6.23" data-search-section="Initial port scan" data-search-href="#tcp-connect-scan" data-search-text="tcp connect scan sT handshake">
+            <div class="terminal-header">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-title">kali@kali: ~</div>
+              <div class="terminal-actions">
+                <button class="term-btn js-copy" type="button">Copy</button>
+                <button class="term-btn js-expand" type="button">Expand</button>
+                <button class="term-btn js-collapse" type="button">Collapse</button>
+              </div>
+            </div>
+            <div class="terminal-body"><pre><span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd">nmap</span> <span class="term-flag-tok">-sT</span> <span class="term-arg">10.6.6.23</span></span>
+<span class="term-out">Starting Nmap 7.94 ( https://nmap.org ) at 2026-07-05 21:38 UTC
+Nmap scan report for gravemind.vm (10.6.6.23)
+Host is up (0.00049s latency).
+Not shown: 994 closed tcp ports (conn-refused)
+PORT    STATE SERVICE
+21/tcp  open  ftp
+22/tcp  open  ssh
+53/tcp  open  domain
+80/tcp  open  http
+139/tcp open  netbios-ssn
+445/tcp open  microsoft-ds
+
+Nmap done: 1 IP address (1 host up) scanned in 0.21 seconds</span></pre></div>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Explanation</h4>
+          <p>
+            The result is identical to the default scan — same six ports, same states. That's expected:
+            <code>-sT</code> completes a full connect() handshake with each port instead of sending a bare
+            SYN packet and analyzing the response, which is slower and noisier on the wire but doesn't
+            require raw-socket privileges. On a clean local network with no filtering in the way, both
+            techniques will usually agree completely.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Security implications</h4>
+          <p>
+            The distinction matters more on a monitored network than it does here. A SYN scan never
+            completes the handshake, so it doesn't always get logged as a full connection by the target
+            application; a connect scan does complete it, and is more likely to show up in application
+            logs, not just firewall or IDS logs.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Related commands</h4>
+          <div class="related-tags"><span class="flag-badge">-sS</span><span class="flag-badge">-sA</span><span class="flag-badge">-sW</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="os-detection">
+      <div class="section-head"><h2>OS detection</h2><span class="flag-badge">-O</span></div>
+      <div class="command-doc">
+        <div class="doc-subsection">
+          <h4>Purpose</h4>
+          <p>Estimate the target's operating system by fingerprinting subtle behaviors of its TCP/IP stack.</p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Syntax</h4>
+          <span class="syntax-line">sudo nmap -O &lt;target&gt;</span>
+        </div>
+        <div class="doc-subsection">
+          <h4>Command &amp; output</h4>
+          <div class="terminal" data-search-entry data-search-title="sudo nmap -O 10.6.6.23" data-search-section="OS detection" data-search-href="#os-detection" data-search-text="os detection fingerprint linux kernel device type">
+            <div class="terminal-header">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-title">kali@kali: ~</div>
+              <div class="terminal-actions">
+                <button class="term-btn js-copy" type="button">Copy</button>
+                <button class="term-btn js-expand" type="button">Expand</button>
+                <button class="term-btn js-collapse" type="button">Collapse</button>
+              </div>
+            </div>
+            <div class="terminal-body"><pre><span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd">sudo</span> <span class="term-cmd">nmap</span> <span class="term-flag-tok">-O</span> <span class="term-arg">10.6.6.23</span></span>
+<span class="term-out">[sudo] password for kali: 
+Starting Nmap 7.94 ( https://nmap.org ) at 2026-07-05 21:38 UTC
+Nmap scan report for gravemind.vm (10.6.6.23)
+Host is up (0.00014s latency).
+Not shown: 994 closed tcp ports (reset)
+PORT    STATE SERVICE
+21/tcp  open  ftp
+22/tcp  open  ssh
+53/tcp  open  domain
+80/tcp  open  http
+139/tcp open  netbios-ssn
+445/tcp open  microsoft-ds
+MAC Address: 02:42:0A:06:06:17 (Unknown)
+Device type: general purpose
+Running: Linux 4.X|5.X
+OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+OS details: Linux 4.15 - 5.8
+Network Distance: 1 hop
+
+OS detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 2.11 seconds</span></pre></div>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Explanation</h4>
+          <p>
+            <code>-O</code> requires elevated privileges because it needs to craft and send raw packets
+            with unusual flag combinations, then compare the target's responses against a large database
+            of known OS fingerprints. Here it came back with a range rather than a single version — "Linux
+            4.15 - 5.8" — which is normal; kernel fingerprinting narrows things down to a plausible band,
+            not an exact build number.
+          </p>
+          <p>
+            The MAC address prefix (<code>02:42:...</code>) is worth noticing on its own: that's the
+            locally-administered address range Docker assigns to its virtual network interfaces, which
+            lines up with this being a containerized lab VM rather than a physical machine — consistent
+            with what was already suspected from the interface list earlier.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Important observations</h4>
+          <ul>
+            <li>"Network Distance: 1 hop" confirms the target is directly reachable on the local segment, with no router in between.</li>
+            <li>Nmap explicitly labels this a best-effort estimate ("OS detection performed... please report any incorrect results") rather than a certainty.</li>
+          </ul>
+        </div>
+        <div class="doc-subsection">
+          <h4>Security implications</h4>
+          <p>
+            Knowing the general OS family narrows down which exploits and default configurations are
+            worth checking later, but treating an OS guess as gospel is a common and avoidable mistake —
+            it should be cross-checked against banners and service versions gathered elsewhere in the scan.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Related commands</h4>
+          <div class="related-tags"><span class="flag-badge">--osscan-guess</span><span class="flag-badge">-A</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="service-version-detection">
+      <div class="section-head"><h2>Service &amp; version detection</h2><span class="flag-badge">-sV</span></div>
+      <p>
+        Knowing that port 21 is open tells you almost nothing on its own — plenty of software can bind to
+        that port. <code>-sV</code> is what turns "something is listening on 21" into "vsftpd 3.0.3 is
+        listening on 21," which is the difference between a guess and a lead.
+      </p>
+
+      <div class="command-doc" id="timing-templates">
+        <div class="section-head"><h3>Timing templates: -T4 vs -T5</h3></div>
+        <div class="doc-subsection">
+          <h4>Purpose</h4>
+          <p>Run the same version scan at two different timing templates to see whether speed settings actually change the result on a low-latency LAN.</p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Syntax</h4>
+          <span class="syntax-line">nmap -v -p&lt;port&gt; -sV -T&lt;0-5&gt; &lt;target&gt;</span>
+        </div>
+        <div class="doc-subsection">
+          <h4>Command &amp; output — T4</h4>
+          <div class="terminal collapsed" data-search-entry data-search-title="nmap -v -p21 -sV -T4" data-search-section="Service and version detection" data-search-href="#timing-templates" data-search-text="timing T4 vsftpd version scan verbose">
+            <div class="terminal-header">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-title">kali@kali: ~</div>
+              <div class="terminal-actions">
+                <button class="term-btn js-copy" type="button">Copy</button>
+                <button class="term-btn js-expand" type="button">Expand</button>
+                <button class="term-btn js-collapse" type="button">Collapse</button>
+              </div>
+            </div>
+            <div class="terminal-body"><pre><span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd">nmap</span> <span class="term-flag-tok">-v -p21 -sV -T4</span> <span class="term-arg">10.6.6.23</span></span>
+<span class="term-out">Starting Nmap 7.94 ( https://nmap.org ) at 2026-07-05 21:41 UTC
+NSE: Loaded 46 scripts for scanning.
+Initiating Ping Scan at 21:41
+Scanning 10.6.6.23 [2 ports]
+Completed Ping Scan at 21:41, 0.00s elapsed (1 total hosts)
+Initiating Connect Scan at 21:41
+Scanning gravemind.vm (10.6.6.23) [1 port]
+Discovered open port 21/tcp on 10.6.6.23
+Completed Connect Scan at 21:41, 0.00s elapsed (1 total ports)
+Initiating Service scan at 21:41
+Scanning 1 service on gravemind.vm (10.6.6.23)
+Completed Service scan at 21:41, 0.01s elapsed (1 service on 1 host)
+Nmap scan report for gravemind.vm (10.6.6.23)
+Host is up (0.00052s latency).
+
+PORT   STATE SERVICE VERSION
+21/tcp open  ftp     vsftpd 3.0.3
+Service Info: OS: Unix
+
+Read data files from: /usr/bin/../share/nmap
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 0.89 seconds</span></pre></div>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Command &amp; output — T5</h4>
+          <div class="terminal collapsed" data-search-entry data-search-title="nmap -v -p21 -sV -T5" data-search-section="Service and version detection" data-search-href="#timing-templates" data-search-text="timing T5 insane vsftpd">
+            <div class="terminal-header">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-title">kali@kali: ~</div>
+              <div class="terminal-actions">
+                <button class="term-btn js-copy" type="button">Copy</button>
+                <button class="term-btn js-expand" type="button">Expand</button>
+                <button class="term-btn js-collapse" type="button">Collapse</button>
+              </div>
+            </div>
+            <div class="terminal-body"><pre><span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd">nmap</span> <span class="term-flag-tok">-v -p21 -sV -T5</span> <span class="term-arg">10.6.6.23</span></span>
+<span class="term-out">Starting Nmap 7.94 ( https://nmap.org ) at 2026-07-05 21:43 UTC
+NSE: Loaded 46 scripts for scanning.
+Initiating Ping Scan at 21:43
+Scanning 10.6.6.23 [2 ports]
+Completed Ping Scan at 21:43, 0.00s elapsed (1 total hosts)
+Initiating Connect Scan at 21:43
+Scanning gravemind.vm (10.6.6.23) [1 port]
+Discovered open port 21/tcp on 10.6.6.23
+Completed Connect Scan at 21:43, 0.00s elapsed (1 total ports)
+Initiating Service scan at 21:43
+Scanning 1 service on gravemind.vm (10.6.6.23)
+Completed Service scan at 21:43, 0.01s elapsed (1 service on 1 host)
+Nmap scan report for gravemind.vm (10.6.6.23)
+Host is up (0.00052s latency).
+
+PORT   STATE SERVICE VERSION
+21/tcp open  ftp     vsftpd 3.0.3
+Service Info: OS: Unix
+
+Read data files from: /usr/bin/../share/nmap
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 0.71 seconds</span></pre></div>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Explanation</h4>
+          <p>
+            <code>-T4</code> ("aggressive") and <code>-T5</code> ("insane") both raise the ceiling on how
+            fast Nmap is willing to send probes and how long it will wait for a reply before giving up.
+            The result — <code>vsftpd 3.0.3</code> — is identical between the two, and the total runtime
+            barely moved, from 0.89 to 0.71 seconds. On a single-port scan against a host that's a few
+            hundred microseconds away, there simply isn't enough latency in the loop for a more aggressive
+            timing template to meaningfully help.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Important observations</h4>
+          <ul>
+            <li>Timing templates mainly pay off on larger scans (many ports, many hosts) or higher-latency targets — a one-port LAN scan isn't a fair test of what <code>-T5</code> is actually for.</li>
+            <li>The service banner identifies <strong>vsftpd 3.0.3</strong> specifically, which is worth remembering: that version has a documented history relevant to anonymous-access misconfigurations, which shows up two commands from now.</li>
+          </ul>
+        </div>
+        <div class="doc-subsection">
+          <h4>Common pitfalls</h4>
+          <div class="callout warning">
+            <div class="callout-title">Common pitfall</div>
+            <p>
+              Jumping straight to <code>-T5</code> on an unfamiliar or rate-limited network can cause
+              dropped probes and false "filtered" results. It's a reasonable choice on your own lab; it's
+              a riskier one on a network you don't control the timing tolerances of.
+            </p>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Related commands</h4>
+          <div class="related-tags"><span class="flag-badge">--version-intensity</span><span class="flag-badge">--min-rate</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="aggressive-scanning">
+      <div class="section-head"><h2>Aggressive scanning &amp; NSE defaults</h2><span class="flag-badge">-A</span></div>
+      <p>
+        <code>-A</code> bundles several things Nmap can normally do separately — OS detection, version
+        detection, default NSE scripts, and traceroute — into one flag. Run against port 21, this is
+        where the FTP server's configuration actually gets tested rather than just identified.
+      </p>
+
+      <div class="command-doc" id="anonymous-ftp">
+        <div class="doc-subsection">
+          <h4>Purpose</h4>
+          <p>Run the default NSE script set against the FTP service to check for common misconfigurations, not just version information.</p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Syntax</h4>
+          <span class="syntax-line">nmap -p21 -sV -A [-T&lt;0-5&gt;] &lt;target&gt;</span>
+        </div>
+        <div class="doc-subsection">
+          <h4>Command &amp; output</h4>
+          <div class="terminal" data-search-entry data-search-title="nmap -p21 -sV -A 10.6.6.23" data-search-section="Aggressive scanning" data-search-href="#anonymous-ftp" data-search-text="ftp-anon anonymous login supersecretfile ftp-syst vsftpd">
+            <div class="terminal-header">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-title">kali@kali: ~</div>
+              <div class="terminal-actions">
+                <button class="term-btn js-copy" type="button">Copy</button>
+                <button class="term-btn js-expand" type="button">Expand</button>
+                <button class="term-btn js-collapse" type="button">Collapse</button>
+              </div>
+            </div>
+            <div class="terminal-body"><pre><span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd">nmap</span> <span class="term-flag-tok">-p21 -sV -A</span> <span class="term-arg">10.6.6.23</span></span>
+<span class="term-out">Starting Nmap 7.94 ( https://nmap.org ) at 2026-07-05 21:46 UTC
+Nmap scan report for gravemind.vm (10.6.6.23)
+Host is up (0.0011s latency).
+
+PORT   STATE SERVICE VERSION
+21/tcp open  ftp     vsftpd 3.0.3
+| ftp-anon: Anonymous FTP login allowed (FTP code 230)
+| -rw-r--r--    1 0        0              16 Aug 13  2021 file1.txt
+| -rw-r--r--    1 0        0              16 Aug 13  2021 file2.txt
+| -rw-r--r--    1 0        0              29 Aug 13  2021 file3.txt
+|_-rw-r--r--    1 0        0              26 Aug 13  2021 supersecretfile.txt
+| ftp-syst: 
+|   STAT: 
+| FTP server status:
+|      Connected to 10.6.6.1
+|      Logged in as ftp
+|      TYPE: ASCII
+|      No session bandwidth limit
+|      Session timeout in seconds is 300
+|      Control connection is plain text
+|      Data connections will be plain text
+|      At session startup, client count was 2
+|      vsFTPd 3.0.3 - secure, fast, stable
+|_End of status
+Service Info: OS: Unix
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 1.26 seconds</span></pre></div>
+          </div>
+          <div class="callout insight">
+            <div class="callout-title">Security insight</div>
+            <p>
+              <code>ftp-anon</code> just confirmed the FTP server accepts an anonymous login (FTP code 230
+              is a successful login response) and listed four files sitting in that anonymous home
+              directory — including one bluntly named <code>supersecretfile.txt</code>. Anonymous FTP
+              isn't automatically a vulnerability on its own, but combined with a file whose name
+              advertises its contents, it's exactly the kind of low-effort finding a real assessment would
+              flag immediately.
+            </p>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Explanation</h4>
+          <p>
+            Two NSE scripts fired automatically here because they're in the "default" category and Nmap
+            recognized the service as FTP: <code>ftp-anon</code>, which attempts an anonymous login and
+            lists the directory if it succeeds, and <code>ftp-syst</code>, which sends a <code>STAT</code>
+            command to pull the server's self-reported status banner. Neither required any extra flags
+            beyond <code>-A</code> — this is the entire point of default script scanning: relevant checks
+            run automatically based on what's already been detected.
+          </p>
+          <p>
+            One thing worth noticing while comparing this run to the one before it: the script blocks
+            appear in a different order (<code>ftp-anon</code> before <code>ftp-syst</code> here, the
+            reverse in an earlier run with <code>-T3</code>). NSE scripts don't guarantee a fixed execution
+            order when several are eligible to run against the same port, so don't read anything into which
+            one prints first.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Important observations</h4>
+          <ul>
+            <li>Anonymous FTP login succeeded, and the session was logged in as the <code>ftp</code> user.</li>
+            <li>Four files are visible, all owned by UID/GID 0 (root) and dated August 2021 — meaning they were staged at some point and haven't been modified since.</li>
+            <li>The FTP status banner confirms the control and data channels are unencrypted plain text, which matters if this server were ever exposed beyond an isolated lab.</li>
+          </ul>
+        </div>
+        <div class="doc-subsection">
+          <h4>Security implications</h4>
+          <p>
+            Anonymous FTP with world-readable files is a classic low-hanging-fruit finding. In a real
+            assessment, the next logical step is simply to download and read those files — which is
+            outside the scope of an enumeration lab focused on Nmap, but is exactly the kind of lead
+            enumeration exists to produce.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Related commands</h4>
+          <div class="related-tags">
+            <span class="flag-badge">--script ftp-anon</span>
+            <span class="flag-badge">--script ftp-brute</span>
+            <span class="flag-badge">wget / curl</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="smb-enumeration">
+      <div class="section-head"><h2>SMB enumeration</h2><span class="flag-badge">-p139,445</span></div>
+      <p>
+        Ports 139 and 445 flagged earlier as "netbios-ssn" and "microsoft-ds" are the two classic SMB
+        ports. Together they're usually the richest source of information on a Windows or Samba host,
+        because the protocol itself is designed to answer questions about users, shares, and system
+        identity.
+      </p>
+
+      <div class="command-doc" id="the-typo">
+        <div class="section-head"><h3>The mistyped command</h3></div>
+        <div class="doc-subsection">
+          <h4>Command</h4>
+          <div class="terminal" data-search-entry data-search-title="nmap -A -p139, 445 (typo)" data-search-section="SMB enumeration" data-search-href="#the-typo" data-search-text="typo space port list error">
+            <div class="terminal-header">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-title">kali@kali: ~</div>
+              <div class="terminal-actions">
+                <button class="term-btn js-copy" type="button">Copy</button>
+              </div>
+            </div>
+            <div class="terminal-body"><pre><span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd">nmap</span> <span class="term-flag-tok">-A -p139, 445</span> <span class="term-arg">10.6.6.23</span></span>
+<span class="term-out">Starting Nmap 7.94 ( https://nmap.org ) at 2026-07-05 21:56 UTC</span>
+<span class="term-warn"># the command hung / produced no further output and was cancelled</span></pre></div>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Explanation</h4>
+          <p>
+            The stray space after the comma in <code>-p139, 445</code> is the problem. Nmap's port-list
+            parser doesn't tolerate whitespace inside a comma-separated list the way a human eye skims
+            right past it — depending on the shell and Nmap's parsing behavior, this either scans only
+            port 139 or fails to build a valid port list at all, which is why the second port never gets
+            included as intended.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Common mistakes</h4>
+          <div class="callout warning">
+            <div class="callout-title">Common mistake</div>
+            <p>
+              Whitespace inside <code>-p</code> lists is one of the most frequent typos in Nmap command
+              lines, precisely because it reads fine to a human. The fix is simply to never put a space
+              after the comma: <code>-p139,445</code>, not <code>-p139, 445</code>.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="command-doc" id="corrected-scan">
+        <div class="section-head"><h3>The corrected scan</h3></div>
+        <div class="doc-subsection">
+          <h4>Purpose</h4>
+          <p>Run full NSE enumeration against both SMB ports together to identify the host's SMB dialect, OS reporting, and security posture.</p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Syntax</h4>
+          <span class="syntax-line">nmap -A -p139,445 &lt;target&gt;</span>
+        </div>
+        <div class="doc-subsection">
+          <h4>Command &amp; output</h4>
+          <div class="terminal" data-search-entry data-search-title="nmap -A -p139,445 10.6.6.23" data-search-section="SMB enumeration" data-search-href="#corrected-scan" data-search-text="samba smbd workgroup smb-os-discovery message signing security mode">
+            <div class="terminal-header">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-title">kali@kali: ~</div>
+              <div class="terminal-actions">
+                <button class="term-btn js-copy" type="button">Copy</button>
+                <button class="term-btn js-expand" type="button">Expand</button>
+                <button class="term-btn js-collapse" type="button">Collapse</button>
+              </div>
+            </div>
+            <div class="terminal-body"><pre><span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd">nmap</span> <span class="term-flag-tok">-A -p139,445</span> <span class="term-arg">10.6.6.23</span></span>
+<span class="term-out">Starting Nmap 7.94 ( https://nmap.org ) at 2026-07-05 21:57 UTC
+Nmap scan report for gravemind.vm (10.6.6.23)
+Host is up (0.00045s latency).
+
+PORT    STATE SERVICE     VERSION
+139/tcp open  netbios-ssn Samba smbd 3.X - 4.X (workgroup: WORKGROUP)
+445/tcp open  netbios-ssn Samba smbd 4.9.5-Debian (workgroup: WORKGROUP)
+Service Info: Host: GRAVEMIND
+
+Host script results:
+| smb2-security-mode: 
+|   3:1:1: 
+|_    Message signing enabled but not required
+| smb-os-discovery: 
+|   OS: Windows 6.1 (Samba 4.9.5-Debian)
+|   Computer name: gravemind
+|   NetBIOS computer name: GRAVEMIND\x00
+|   Domain name: \x00
+|   FQDN: gravemind
+|_  System time: 2026-07-05T21:57:19+00:00
+| smb2-time: 
+|   date: 2026-07-05T21:57:18
+|_  start_date: N/A
+| smb-security-mode: 
+|   account_used: &lt;blank&gt;
+|   authentication_level: user
+|   challenge_response: supported
+|_  message_signing: disabled (dangerous, but default)
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 17.16 seconds</span></pre></div>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Explanation</h4>
+          <p>
+            This single scan answers several questions at once. The service line confirms this isn't
+            actually Windows file sharing — it's <strong>Samba 4.9.5 on Debian</strong> impersonating a
+            Windows host, which is exactly what Samba is designed to do. <code>smb-os-discovery</code>
+            picked up the computer name (<code>gravemind</code>), and <code>smb-security-mode</code>
+            reported that message signing is disabled — labelled directly in the output as "dangerous, but
+            default," which is Nmap's own script authors flagging a real weakness rather than the
+            documentation here editorializing.
+          </p>
+          <p>
+            It's also worth noticing this scan took over seventeen seconds — dramatically longer than
+            anything else in this walkthrough. SMB script enumeration is comparatively heavy: it opens
+            authenticated (or anonymous) sessions and issues several protocol-level queries per script,
+            which costs real time compared to a simple port probe.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Important observations</h4>
+          <ul>
+            <li>The two ports report slightly different version strings (a broad "3.X - 4.X" range on 139 versus the precise "4.9.5-Debian" on 445) — 445 is the modern SMB-over-TCP port and typically yields the more accurate fingerprint.</li>
+            <li>Message signing is enabled but not required on SMB2, and outright disabled by default on the legacy security-mode check — both point the same direction: sessions can be negotiated without integrity protection.</li>
+            <li>The reported "Windows 6.1" OS string is a Samba compatibility artifact, not a real Windows install — Samba reports a Windows version number to stay compatible with clients that expect one.</li>
+          </ul>
+        </div>
+        <div class="doc-subsection">
+          <h4>Security implications</h4>
+          <div class="callout danger">
+            <div class="callout-title">Security insight</div>
+            <p>
+              Disabled or optional message signing on SMB opens the door to man-in-the-middle relay
+              attacks, where an attacker positioned on the network can intercept and relay authentication
+              attempts rather than needing to crack a password directly. This is a well-known, well-
+              documented weakness class and one of the most common findings in real internal network
+              assessments.
+            </p>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Related commands</h4>
+          <div class="related-tags"><span class="flag-badge">smbclient</span><span class="flag-badge">enum4linux</span><span class="flag-badge">crackmapexec</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="finding-scripts">
+      <div class="section-head"><h2>Finding NSE scripts</h2><span class="flag-badge">locate *.nse</span></div>
+      <div class="command-doc">
+        <div class="doc-subsection">
+          <h4>Purpose</h4>
+          <p>Locate the specific SMB-related NSE scripts on disk before running them individually rather than relying on the default script set.</p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Command</h4>
+          <div class="terminal collapsed" data-search-entry data-search-title="locate *.nse" data-search-section="Finding NSE scripts" data-search-href="#finding-scripts" data-search-text="locate nse scripts smb-enum quoting glob expansion">
+            <div class="terminal-header">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-title">kali@kali: ~</div>
+              <div class="terminal-actions">
+                <button class="term-btn js-copy" type="button">Copy</button>
+                <button class="term-btn js-expand" type="button">Expand</button>
+                <button class="term-btn js-collapse" type="button">Collapse</button>
+              </div>
+            </div>
+            <div class="terminal-body"><pre><span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd">locate*.nse</span></span>
+<span class="term-warn">locate*.nse: command not found</span>
+
+<span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd">locate</span> <span class="term-arg">*.nse</span></span>
+<span class="term-out">/usr/share/nmap/scripts/smb-enum-users.nse
+/usr/share/nmap/scripts/smb-enum-groups.nse
+/usr/share/nmap/scripts/smb-enum-shares.nse
+/usr/share/nmap/scripts/smb-enum-sessions.nse
+/usr/share/nmap/scripts/smb-enum-domains.nse
+/usr/share/nmap/scripts/smb-enum-services.nse
+/usr/share/nmap/scripts/smb-os-discovery.nse
+/usr/share/nmap/scripts/smb-security-mode.nse
+/usr/share/nmap/scripts/smb-protocols.nse
+/usr/share/nmap/scripts/smb-vuln-ms17-010.nse
+<span class="term-comment">… (full script library omitted here — several hundred .nse files ship with Nmap)</span></span></pre></div>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Explanation</h4>
+          <p>
+            The first attempt, <code>locate*.nse</code>, is missing a space between the command and its
+            argument, so the shell tries to run a program literally named <code>locate*.nse</code> and
+            fails immediately with "command not found." Adding the space fixes it: <code>locate *.nse</code>
+            asks the <code>locate</code> database for every file anywhere on the filesystem ending in
+            <code>.nse</code>, which returns Nmap's entire script library — several hundred files covering
+            everything from banner grabbing to specific CVE checks.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Important observations</h4>
+          <ul>
+            <li>The full result list (omitted above for length — expand the terminal block to see the real output) confirms a family of SMB-specific scripts exists: <code>smb-enum-users</code>, <code>smb-enum-groups</code>, and <code>smb-enum-shares</code> among them.</li>
+            <li>Running individual scripts by name gives finer control than <code>-A</code>'s default set, which only runs scripts tagged "default" or "safe" — some of the more invasive enumeration scripts aren't included automatically.</li>
+          </ul>
+        </div>
+        <div class="doc-subsection">
+          <h4>Related commands</h4>
+          <div class="related-tags"><span class="flag-badge">nmap --script-updatedb</span><span class="flag-badge">find / -name *.nse</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="targeted-nse">
+      <div class="section-head"><h2>Targeted NSE enumeration</h2><span class="flag-badge">--script</span></div>
+      <p>
+        With the relevant script names in hand, the next three commands each run a single, specific NSE
+        script against the SMB service, rather than relying on whatever <code>-A</code> decided to include
+        automatically.
+      </p>
+
+      <div class="command-doc" id="smb-enum-users">
+        <div class="section-head"><h3>Enumerating SMB users</h3><span class="flag-badge">smb-enum-users.nse</span></div>
+        <div class="doc-subsection">
+          <h4>Syntax</h4>
+          <span class="syntax-line">nmap --script smb-enum-users.nse -p139,445 &lt;target&gt;</span>
+        </div>
+        <div class="doc-subsection">
+          <h4>Command &amp; output</h4>
+          <div class="terminal" data-search-entry data-search-title="nmap --script smb-enum-users.nse" data-search-section="Targeted NSE enumeration" data-search-href="#smb-enum-users" data-search-text="smb-enum-users arbiter masterchief account disabled password not required">
+            <div class="terminal-header">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-title">kali@kali: ~</div>
+              <div class="terminal-actions">
+                <button class="term-btn js-copy" type="button">Copy</button>
+                <button class="term-btn js-expand" type="button">Expand</button>
+                <button class="term-btn js-collapse" type="button">Collapse</button>
+              </div>
+            </div>
+            <div class="terminal-body"><pre><span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd">nmap</span> <span class="term-flag-tok">--script</span> <span class="term-arg">smb-enum-users.nse</span> <span class="term-flag-tok">-p139,445</span> <span class="term-arg">10.6.6.23</span></span>
+<span class="term-out">Starting Nmap 7.94 ( https://nmap.org ) at 2026-07-05 22:02 UTC
+Nmap scan report for gravemind.vm (10.6.6.23)
+Host is up (0.00046s latency).
+
+PORT    STATE SERVICE
+139/tcp open  netbios-ssn
+445/tcp open  microsoft-ds
+
+Host script results:
+| smb-enum-users: 
+|   GRAVEMIND\arbiter (RID: 1001)
+|     Full name:   
+|     Description: 
+|     Flags:       Account disabled, Password not required, Normal user account
+|   GRAVEMIND\masterchief (RID: 1000)
+|     Full name:   
+|     Description: 
+|_    Flags:       Account disabled, Password not required, Normal user account
+
+Nmap done: 1 IP address (1 host up) scanned in 0.57 seconds</span></pre></div>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Explanation</h4>
+          <p>
+            This script asks the SMB service directly for its local user accounts using an anonymous
+            (null) session — something legacy SMB configurations allow without any credentials at all. It
+            found two accounts, <code>arbiter</code> and <code>masterchief</code>, complete with their
+            relative identifiers (RIDs). Both are flagged "Account disabled," which at first glance sounds
+            reassuring, but a disabled account is still a confirmed, real username — useful information
+            for password-guessing against any other service the same account might exist on, like SSH.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Important observations</h4>
+          <ul>
+            <li>User enumeration succeeded with zero credentials — the SMB server allowed an anonymous session to query its user list.</li>
+            <li>Both accounts also show "Password not required," which, if they weren't disabled, would mean a blank password is accepted.</li>
+          </ul>
+        </div>
+        <div class="doc-subsection">
+          <h4>Security implications</h4>
+          <p>
+            Username enumeration on its own is a reconnaissance win, not a compromise — but it directly
+            feeds the next step an attacker would take: trying those exact usernames against SSH, FTP, or
+            any other exposed authentication surface on the same host.
+          </p>
+        </div>
+      </div>
+
+      <div class="command-doc" id="smb-enum-groups">
+        <div class="section-head"><h3>Enumerating SMB groups</h3><span class="flag-badge">smb-enum-groups.nse</span></div>
+        <div class="doc-subsection">
+          <h4>Command &amp; output</h4>
+          <div class="terminal" data-search-entry data-search-title="nmap --script smb-enum-groups.nse" data-search-section="Targeted NSE enumeration" data-search-href="#smb-enum-groups" data-search-text="smb-enum-groups no host script results">
+            <div class="terminal-header">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-title">kali@kali: ~</div>
+              <div class="terminal-actions">
+                <button class="term-btn js-copy" type="button">Copy</button>
+              </div>
+            </div>
+            <div class="terminal-body"><pre><span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd">nmap</span> <span class="term-flag-tok">--script</span> <span class="term-arg">/usr/share/nmap/scripts/smb-enum-groups.nse</span> <span class="term-flag-tok">-p445</span> <span class="term-arg">10.6.6.23</span></span>
+<span class="term-out">Starting Nmap 7.94 ( https://nmap.org ) at 2026-07-05 22:04 UTC
+Nmap scan report for gravemind.vm (10.6.6.23)
+Host is up (0.00032s latency).
+
+PORT    STATE SERVICE
+445/tcp open  microsoft-ds
+
+Nmap done: 1 IP address (1 host up) scanned in 0.36 seconds</span></pre></div>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Explanation</h4>
+          <p>
+            No "Host script results" block appears here at all, meaning the script ran but returned
+            nothing. That's a real, meaningful result, not an error — it usually means either no groups
+            were retrievable over the anonymous session used, or this particular Samba configuration
+            doesn't expose group information the way it exposed user accounts a moment earlier. It's worth
+            noting the script was called via its full path this time rather than by name; both work
+            identically as long as the path is correct.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Common mistakes</h4>
+          <p>
+            An empty result is easy to misread as "the command failed." It didn't — it completed
+            successfully and connected to the port; it simply had nothing to report. The distinction
+            matters when deciding whether to debug the command or move on.
+          </p>
+        </div>
+      </div>
+
+      <div class="command-doc" id="smb-enum-shares">
+        <div class="section-head"><h3>Enumerating SMB shares</h3><span class="flag-badge">smb-enum-shares.nse</span></div>
+        <div class="doc-subsection">
+          <h4>Purpose</h4>
+          <p>Identify every SMB share the host exposes and what level of access is available on each one.</p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Command &amp; output</h4>
+          <div class="terminal" data-search-entry data-search-title="nmap --script smb-enum-shares.nse" data-search-section="Targeted NSE enumeration" data-search-href="#smb-enum-shares" data-search-text="smb-enum-shares workfiles confidential anonymous access read write ipc">
+            <div class="terminal-header">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-title">kali@kali: ~</div>
+              <div class="terminal-actions">
+                <button class="term-btn js-copy" type="button">Copy</button>
+                <button class="term-btn js-expand" type="button">Expand</button>
+                <button class="term-btn js-collapse" type="button">Collapse</button>
+              </div>
+            </div>
+            <div class="terminal-body"><pre><span class="prompt-line"><span class="prompt-deco">┌──(</span><span class="prompt-user">kali</span><span class="prompt-deco">㉿</span><span class="prompt-host">Kali</span><span class="prompt-deco">)-[~]</span>
+<span class="prompt-deco">└─$</span> <span class="term-cmd">nmap</span> <span class="term-flag-tok">--script</span> <span class="term-arg">/usr/share/nmap/scripts/smb-enum-shares.nse</span> <span class="term-flag-tok">-p445</span> <span class="term-arg">10.6.6.23</span></span>
+<span class="term-out">Starting Nmap 7.94 ( https://nmap.org ) at 2026-07-05 22:06 UTC
+Nmap scan report for gravemind.vm (10.6.6.23)
+Host is up (0.0024s latency).
+
+PORT    STATE SERVICE
+445/tcp open  microsoft-ds
+
+Host script results:
+| smb-enum-shares: 
+|   account_used: &lt;blank&gt;
+|   \\10.6.6.23\IPC$: 
+|     Type: STYPE_IPC_HIDDEN
+|     Comment: IPC Service (Samba 4.9.5-Debian)
+|     Users: 1
+|     Max Users: &lt;unlimited&gt;
+|     Path: C:\tmp
+|     Anonymous access: READ/WRITE
+|   \\10.6.6.23\print$: 
+|     Type: STYPE_DISKTREE
+|     Comment: Printer Drivers
+|     Users: 0
+|     Max Users: &lt;unlimited&gt;
+|     Path: C:\var\lib\samba\printers
+|     Anonymous access: READ/WRITE
+|   \\10.6.6.23\workfiles: 
+|     Type: STYPE_DISKTREE
+|     Comment: Confidential Workfiles
+|     Users: 0
+|     Max Users: &lt;unlimited&gt;
+|     Path: C:\var\spool\samba
+|_    Anonymous access: READ/WRITE
+
+Nmap done: 1 IP address (1 host up) scanned in 7.42 seconds</span></pre></div>
+          </div>
+          <div class="callout danger">
+            <div class="callout-title">Security insight</div>
+            <p>
+              This is the most significant finding in the entire lab. A share literally commented
+              "Confidential Workfiles" grants anonymous read/write access — meaning anyone on the network,
+              without any credentials, can read whatever is stored there and write new files into it. The
+              <code>account_used: &lt;blank&gt;</code> line confirms no authentication was needed to see any
+              of this.
+            </p>
+          </div>
+        </div>
+        <div class="doc-subsection">
+          <h4>Explanation</h4>
+          <p>
+            Three shares came back. <code>IPC$</code> is a standard administrative share every SMB server
+            exposes for inter-process communication and is expected to be present; <code>print$</code> is
+            the equally standard printer-drivers share. Neither is unusual on its own. The third,
+            <code>workfiles</code>, is not a default share — someone configured it deliberately, gave it a
+            comment that flags exactly how sensitive its contents are supposed to be, and left anonymous
+            read/write access enabled on it anyway.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Important observations</h4>
+          <ul>
+            <li>All three shares report "Anonymous access: READ/WRITE" — none of them require a login of any kind.</li>
+            <li>Write access, not just read, means an attacker could plant a file rather than only read existing ones — a meaningfully worse position than a read-only leak.</li>
+            <li>The share's own comment ("Confidential Workfiles") is effectively self-incriminating documentation of the misconfiguration's severity.</li>
+          </ul>
+        </div>
+        <div class="doc-subsection">
+          <h4>Common pitfalls</h4>
+          <p>
+            It's tempting to stop at "share found" and move on. The comment field and access level are
+            just as important as the share's existence — a share named <code>backups</code> with read-only
+            guest access is a very different finding from one named <code>workfiles</code> with read/write.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Security implications</h4>
+          <p>
+            Anonymous write access to a network share is a direct path to data tampering or, in the right
+            circumstances, to remote code execution — for example if the share's contents are ever executed
+            by another process on the host. This finding alone would justify an immediate remediation
+            recommendation in a real assessment report.
+          </p>
+        </div>
+        <div class="doc-subsection">
+          <h4>Related commands</h4>
+          <div class="related-tags"><span class="flag-badge">smbclient //target/workfiles</span><span class="flag-badge">smbmap</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="analysis">
+      <h2>Analysis</h2>
+      <p>
+        Stepping back from the individual commands, the picture that <code>gravemind.vm</code> paints is
+        one host running at least three services worth a closer look: an FTP server with anonymous access
+        enabled, an SSH daemon that was never actually probed in this lab, and a Samba installation with
+        two separate, serious weaknesses — message signing that isn't enforced, and a share that's
+        writable by anyone. None of these individually required exploitation tooling to find; every one
+        of them came from Nmap and its bundled scripts alone.
+      </p>
+      <p>
+        It's also worth noting what wasn't found. Port 80 (HTTP) and port 53 (DNS) were identified as open
+        early on but never enumerated further in this session — a reminder that an enumeration pass is
+        rarely exhaustive in one sitting, and it's normal for a lab (or a real engagement) to prioritize
+        the most promising leads first and circle back to the rest later.
+      </p>
+      <figure data-zoomable tabindex="0" role="button" aria-label="Expand figure: annotated scan summary">
+        <div class="figure-placeholder"><div class="ph-icon">Screenshot placeholder<br><small>annotated summary of open ports and findings</small></div></div>
+        <figcaption><span class="fig-num">Figure 1.</span>Suggested location for a screenshot summarizing all open ports and NSE findings side by side.</figcaption>
+      </figure>
+    </section>
+
+    <section id="summary">
+      <h2>Summary</h2>
+      <table>
+        <thead><tr><th>Port</th><th>Service</th><th>Key finding</th></tr></thead>
+        <tbody>
+          <tr><td>21/tcp</td><td>vsftpd 3.0.3</td><td>Anonymous login allowed; 4 files readable, including one named to suggest sensitive content</td></tr>
+          <tr><td>22/tcp</td><td>SSH</td><td>Open, not enumerated in this session</td></tr>
+          <tr><td>53/tcp</td><td>DNS</td><td>Open, not enumerated in this session</td></tr>
+          <tr><td>80/tcp</td><td>HTTP</td><td>Open, not enumerated in this session</td></tr>
+          <tr><td>139, 445/tcp</td><td>Samba 4.9.5-Debian</td><td>Message signing not enforced; two valid usernames enumerated anonymously; a "workfiles" share is readable and writable with no authentication</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="lessons-learned">
+      <h2>Lessons learned</h2>
+      <ul>
+        <li>Confirming your own network position before scanning saves time later — the interface check at the start ruled out an entire category of confusing false negatives.</li>
+        <li>A default scan and an explicit <code>-sT</code> scan can produce identical results, but knowing why they might differ elsewhere is more valuable than the result itself.</li>
+        <li>Timing templates aren't magic — their effect depends entirely on network conditions and scan size, and testing that assumption directly, as this lab did, is more convincing than taking it on faith.</li>
+        <li>Typos like a stray space in a port list or a missing space before an argument are routine, not signs of doing something wrong — the fix is almost always smaller than the confusion it causes.</li>
+        <li>The most serious finding in this entire lab (the writable SMB share) came from a single-purpose NSE script, not from the broader <code>-A</code> flag — knowing the specific scripts by name is worth the extra step of looking them up.</li>
+      </ul>
+    </section>
+
+    <section id="references">
+      <h2>References</h2>
+      <ul>
+        <li>Official Nmap documentation and manual: <a href="https://nmap.org/book/man.html" target="_blank" rel="noopener">nmap.org/book/man.html</a></li>
+        <li>Nmap NSE script index: <a href="https://nmap.org/nsedoc/" target="_blank" rel="noopener">nmap.org/nsedoc</a></li>
+        <li>vsftpd project: <a href="https://security.appspot.com/vsftpd.html" target="_blank" rel="noopener">security.appspot.com/vsftpd.html</a></li>
+        <li>Samba security documentation: <a href="https://www.samba.org/samba/docs/" target="_blank" rel="noopener">samba.org/samba/docs</a></li>
+      </ul>
+    </section>
+
+    <nav class="page-nav" aria-label="Page navigation">
+      <a class="prev" href="index.html"><span class="label">← Previous</span>Project overview</a>
+      <a class="next" href="lab.html#references"><span class="label">Next →</span>Jump to references</a>
+    </nav>
+  </main>
+
+  <!-- ================================ TOC ================================ -->
+  <aside class="toc">
+    <h3>On this page</h3>
+    <ul>
+      <li><a href="#introduction">Introduction</a></li>
+      <li><a href="#environment-verification">Environment verification</a></li>
+      <li class="toc-h3"><a href="#checking-interfaces">Checking interfaces</a></li>
+      <li class="toc-h3"><a href="#confirming-version">Confirming version</a></li>
+      <li class="toc-h3"><a href="#built-in-help">Built-in help</a></li>
+      <li><a href="#host-discovery">Host discovery</a></li>
+      <li><a href="#initial-port-scan">Initial port scan</a></li>
+      <li class="toc-h3"><a href="#default-scan">Default scan</a></li>
+      <li class="toc-h3"><a href="#tcp-connect-scan">TCP connect scan</a></li>
+      <li><a href="#os-detection">OS detection</a></li>
+      <li><a href="#service-version-detection">Service &amp; version detection</a></li>
+      <li><a href="#aggressive-scanning">Aggressive scanning</a></li>
+      <li><a href="#smb-enumeration">SMB enumeration</a></li>
+      <li><a href="#finding-scripts">Finding NSE scripts</a></li>
+      <li><a href="#targeted-nse">Targeted NSE scripts</a></li>
+      <li><a href="#analysis">Analysis</a></li>
+      <li><a href="#summary">Summary</a></li>
+      <li><a href="#lessons-learned">Lessons learned</a></li>
+      <li><a href="#references">References</a></li>
+    </ul>
+    <div class="reading-time">~24 min read<br>Updated 6 Jul 2026</div>
+  </aside>
+</div>
+
+<footer class="site-footer">
+  <div class="footer-grid">
+    <div>
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="index.html">Overview</a></li>
+        <li><a href="lab.html">Full walkthrough</a></li>
+        <li><a href="lab.html#references">References</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/" target="_blank" rel="noopener">Repository</a></li>
+        <li><a href="README.md">README</a></li>
+        <li><a href="LICENSE">License</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Author</h4>
+      <ul>
+        <li>Written and maintained by the student who ran the lab</li>
+        <li>Corrections and pull requests welcome</li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>Last updated 6 July 2026. Licensed under the MIT License.</p>
+  </div>
+</footer>
+
+<button id="back-to-top" aria-label="Back to top">↑</button>
+<script src="scripts/main.js"></script>
+</body>
+</html>
